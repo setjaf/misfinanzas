@@ -6,7 +6,6 @@ import {Switch,Route} from 'react-router-dom';
 import Login from './Login/Login';
 import Resumen from './Resumen/Resumen';
 import './App.css';
-import { firestore } from 'firebase';
 
 const db = firebase.firestore();
 
@@ -20,49 +19,14 @@ export default class App extends Component{
       nombre:null,
       correo:null,
       imgPerfil:null,
-      presupuesto:null,      
+      presupuestoId:null,      
     }
 
     this.userDoc = null;
 
     this.loginUser = this.loginUser.bind(this);
 
-  }  
-
-  registrarIngreso(event){
-    const esto = this;
-
-    event.preventDefault();
-
-    let ingresos = this.state.ingresosFijos.slice(0,this.state.ingresosFijos.length);
-
-    let ingreso = FDtoJSON(new FormData(event.target));
-
-    ingreso.registro = firebase.firestore.Timestamp.now();
-
-    let presupuesto = db.collection('Usuarios').doc(this.state.uid).collection('Presupuestos').doc(this.state.presupuestoId);
-    
-    presupuesto.collection('Ingresos').add(ingreso).then(
-      (docRef)=>{
-
-        alert('Ingreso guardado');
-
-        /*ingreso.id = docRef.id;
-
-        ingresos.push(
-          ingreso
-        );
-
-        esto.setState({
-          ingresosFijos:ingresos,
-        });*/
-
-      }
-    ).catch(
-      ()=>alert('No se pudo guardar el ingreso')
-    );
-    event.target.reset();
-  }
+  }   
 
   loginUser(user){
     let esto = this;
@@ -73,24 +37,34 @@ export default class App extends Component{
       (result)=>{
         if(result.empty){
 
-          presupuesto = db.collection('Usuarios').doc(user.uid).collection('Presupuestos').add({
+          db.collection('Usuarios').doc(user.uid).collection('Presupuestos').add({
             Creado:firebase.firestore.FieldValue.serverTimestamp(),
-            dineroDisponible: 0,
-            dineroLibre: 0,
+            dineroDisponible: 0.0,
+            dineroLibre: 0.0,
+          }).then((doc)=>{
+            presupuesto=doc;
+            this.setState({
+              logged:true,
+              nombre: user.displayName,
+              correo: user.email,
+              imgPerfil: user.photoURL,
+              uid: user.uid,
+              presupuestoId: presupuesto.id,
+            });            
           });
-          
         }else{
           presupuesto = result.docs[0];
+          this.setState({
+            logged:true,
+            nombre: user.displayName,
+            correo: user.email,
+            imgPerfil: user.photoURL,
+            uid: user.uid,
+            presupuestoId: presupuesto.id,
+          });
         }
 
-        this.setState({
-          logged:true,
-          nombre: user.displayName,
-          correo: user.email,
-          imgPerfil: user.photoURL,
-          uid: user.uid,
-          presupuestoId: presupuesto.id,
-        });
+        
                
       }
     );
@@ -108,7 +82,7 @@ export default class App extends Component{
           render={
             ()=>{
               return (this.state.logged?
-                (<Resumen />)
+                (<Resumen uid={this.state.uid} presupuestoId={this.state.presupuestoId}/>)
               :
                 (<Login loginUsuario={(user)=>this.loginUser(user)}/>)
               );
