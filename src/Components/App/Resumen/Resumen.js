@@ -1,17 +1,27 @@
-import React from 'react';
+import React,{Component} from 'react';
 import Ingresos from './Ingresos/Ingresos';
 import Gastos from './Gastos/Gastos';
 
-let Resumen = (props) =>{ 
-  return(
-    <div>
-      <h1>Hola has entrado</h1>
-      <Ingresos uid={props.uid} presupuestoId={props.presupuestoId}/>
+export default class Resumen extends Component{
 
-      <Gastos uid={props.uid} presupuestoId={props.presupuestoId}/>
-    </div>
-    
-  );
+  constructor(props){
+    super(props);
+
+    this.state={
+      dineroDisponible:0,
+      dineroLibre:0,
+    }
+  }
+
+  render(){
+    return(
+      <div>
+        <h1>Dinero disponible</h1>
+        <Ingresos uid={this.props.uid} presupuestoId={this.props.presupuestoId}/>
+  
+        <Gastos uid={this.props.uid} presupuestoId={this.props.presupuestoId}/>
+      </div>
+      
+    );
+  }
 }
-
-export default Resumen;

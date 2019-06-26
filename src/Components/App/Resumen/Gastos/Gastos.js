@@ -14,11 +14,31 @@ export default class Gastos extends Component {
     
     this.registrarGasto = this.registrarGasto.bind(this);
     this.borrarGasto = this.borrarGasto.bind(this);
+    this.pagarGasto = this.pagarGasto.bind(this);
+    this.actualizarGasto = this.actualizarGasto.bind(this);
     this.inicializarGastos = this.inicializarGastos.bind(this);
+
+    this.presupuesto = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId);;
+    
+    this.presupuesto.collection('Gastos').onSnapshot((qs)=>{
+      console.log(qs);
+      console.log(qs.docChanges())
+      qs.docChanges().map((change)=>{
+
+        if(change.type=='modified'){
+          console.log(change.doc.data());
+          
+          this.actualizarGasto(change.doc.id,change.doc.data());          
+        }
+        
+      });      
+    });
   }  
 
   componentDidMount(){
+
     this.inicializarGastos();
+
   }
 
   inicializarGastos(){
@@ -51,26 +71,26 @@ export default class Gastos extends Component {
     
     let gasto = FDtoJSON(new FormData(event.target));
 
-    gasto.registro = firebase.firestore.Timestamp.now();    
-
-    let presupuesto = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId);
+    gasto.registro = firebase.firestore.Timestamp.now();  
     
-    db.runTransaction(
-      function (transaction) {
-        return transaction.get(presupuesto).then(
-          (doc)=>{
-            transaction.update(presupuesto,
-              {                
-                dineroLibre:Number(doc.data().dineroLibre)-Number(gasto.importe),
+    gasto.importeActual = gasto.importeOriginal;       
+    
+    this.presupuesto.collection('Gastos').add(gasto).then(
+      (docRef)=>{
+
+        db.runTransaction(
+          function (transaction) {
+            return transaction.get(esto.presupuesto).then(
+              (doc)=>{
+                transaction.update(esto.presupuesto,
+                  {                
+                    dineroLibre:Number(doc.data().dineroLibre)-Number(gasto.importeOriginal),
+                  }
+                );
               }
             );
           }
         );
-      }
-    );    
-    
-    presupuesto.collection('Gastos').add(gasto).then(
-      (docRef)=>{
 
         alert('Gasto guardado');
 
@@ -87,7 +107,6 @@ export default class Gastos extends Component {
       }
     ).catch(
       (a)=>{
-        alert(a);
         alert('No se pudo guardar el gasto')
       }
     );
@@ -100,27 +119,26 @@ export default class Gastos extends Component {
 
     let gastos = this.state.gastos.slice(0,this.state.gastos.length);
 
-    let presupuesto = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId);
-
     console.log(gastos);
     console.log(gasto);
 
-    db.runTransaction(
-      function (transaction) {
-        return transaction.get(presupuesto).then(
-          (doc)=>{
-            transaction.update(presupuesto,
-              {                
-                dineroLibre:Number(doc.data().dineroLibre)+Number(gastos[gasto].importe),
+    this.presupuesto.collection('Gastos').doc(gastos[gasto].id).delete().then(
+      ()=>{
+        let importeGasto = gastos[gasto].importeOriginal;
+        db.runTransaction(
+          function (transaction) {
+            return transaction.get(esto.presupuesto).then(
+              (doc)=>{
+                transaction.update(esto.presupuesto,
+                  {                
+                    dineroLibre:Number(doc.data().dineroLibre)+Number(importeGasto),
+                  }
+                );
               }
             );
           }
         );
-      }
-    );
 
-    presupuesto.collection('Gastos').doc(gastos[gasto].id).delete().then(
-      ()=>{
         gastos.splice(gasto,1);
 
         esto.setState({
@@ -129,6 +147,79 @@ export default class Gastos extends Component {
       }
     );
 
+  }
+
+  pagarGasto(event){
+    const esto = this;
+
+    event.preventDefault();
+    
+    let pago = FDtoJSON(new FormData(event.target));
+
+    this.presupuesto.collection('Gastos').doc(pago.gastoId).collection('Pagos').add({
+      importe:pago.importePago,
+      registro:firebase.firestore.Timestamp.now(),
+    }).then((docRef)=>{
+
+      console.log(docRef.id);
+
+      alert('Pago registrado correctamente');
+
+      db.runTransaction(
+        function (transaction) {
+          return transaction.get(esto.presupuesto).then(
+            (doc)=>{
+              transaction.update(esto.presupuesto,
+                {                
+                  dineroDisponible:Number(doc.data().dineroDisponible)-Number(pago.importePago),
+                }
+              );
+            }
+          );
+        }
+      );
+
+      db.runTransaction(
+        function (transaction) {
+          return transaction.get(esto.presupuesto.collection('Gastos').doc(pago.gastoId)).then(
+            (doc)=>{
+              transaction.update(esto.presupuesto.collection('Gastos').doc(pago.gastoId),
+                {                
+                  importeActual:Number(doc.data().importeActual)-Number(pago.importePago),
+                }
+              );
+            }
+          );
+        }
+      );
+
+    });
+    
+    console.log(pago);
+
+    event.target.reset();
+    
+  }
+
+  actualizarGasto(gastoId,gastoObj){
+    alert("Actualizando gasto");
+    let gastos = this.state.gastos.slice(0,this.state.gastos.length);
+    console.log(gastos);
+    
+    gastos = gastos.map((gasto)=>{
+      if(gasto.id==gastoId){
+        gasto=gastoObj;
+        gasto.id = gastoId;
+        gasto.registro = gasto.registro.toDate();
+      }
+      return gasto;
+    });
+
+    console.log(gastos);
+
+    this.setState({
+      gastos:gastos,
+    })
   }
 
   render(){
@@ -148,7 +239,7 @@ export default class Gastos extends Component {
               <label>
                 Importe:
               </label>
-              <input type="text" name="importe" required/>
+              <input type="text" name="importeOriginal" required/>
             </div>
 
             <input type="submit" value="Enviar"/>
@@ -157,7 +248,8 @@ export default class Gastos extends Component {
             <thead>
               <tr>
                 <td>Concepto</td>
-                <td>Importe</td>
+                <td>Importe Original</td>
+                <td>Importe Actual</td>
                 <td>Periodicidad</td>
               </tr>
             </thead>
@@ -169,9 +261,19 @@ export default class Gastos extends Component {
                     return(
                       <tr key={key}>
                         <td>{gasto.concepto}</td>
-                        <td>${gasto.importe}</td>
+                        <td>${gasto.importeOriginal}</td>
+                        <td>${gasto.importeActual}</td>
                         <td>{`${gasto.registro.getFullYear()}-${gasto.registro.getMonth()+1<10?'0':''}${gasto.registro.getMonth()+1}-${gasto.registro.getDate()<10?'0':''}${gasto.registro.getDate()}`}</td>
-                        <td><button onClick={()=>this.pagarGasto(key)}>Realizar Pago</button></td>
+                        <td>
+                          <form onSubmit={(event)=>this.pagarGasto(event)}>
+                            <input type="text" name="gastoId" value={gasto.id} readOnly={true} hidden={true} />
+                            <label>
+                              Importe:
+                            </label>
+                            <input type="number" name="importePago" required/>
+                            <input type="submit" value="Realizar Pago" />
+                          </form>
+                        </td>
                         <td><button onClick={()=>this.borrarGasto(key)}>Borrar</button></td>
                       </tr>
                     );

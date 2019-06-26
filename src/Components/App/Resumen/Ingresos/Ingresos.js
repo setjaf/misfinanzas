@@ -106,23 +106,27 @@ export default class Ingresos extends Component {
     console.log(ingresos);
     console.log(ingreso);
 
-    db.runTransaction(
-      function (transaction) {
-        return transaction.get(presupuesto).then(
-          (doc)=>{
-            transaction.update(presupuesto,
-              {
-                dineroDisponible:Number(doc.data().dineroDisponible)-Number(ingresos[ingreso].importe),
-                dineroLibre:Number(doc.data().dineroLibre)-Number(ingresos[ingreso].importe),
+    
+
+    presupuesto.collection('Ingresos').doc(ingresos[ingreso].id).delete().then(
+      ()=>{
+        let ingresoImporte = ingresos[ingreso].importe;
+
+        db.runTransaction(
+          function (transaction) {
+            return transaction.get(presupuesto).then(
+              (doc)=>{
+                transaction.update(presupuesto,
+                  {
+                    dineroDisponible:Number(doc.data().dineroDisponible)-Number(ingresoImporte),
+                    dineroLibre:Number(doc.data().dineroLibre)-Number(ingresoImporte),
+                  }
+                );
               }
             );
           }
         );
-      }
-    );
 
-    presupuesto.collection('Ingresos').doc(ingresos[ingreso].id).delete().then(
-      ()=>{
         ingresos.splice(ingreso,1);
 
         esto.setState({
