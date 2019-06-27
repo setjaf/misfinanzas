@@ -1,5 +1,4 @@
 import React, {Component} from 'react';
-import {FDtoJSON} from '../../Utils/FDtoJSON.js';
 import firebase from '../../Utils/firebase.js';
 import {Switch,Route} from 'react-router-dom';
 

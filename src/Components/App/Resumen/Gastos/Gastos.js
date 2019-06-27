@@ -21,12 +21,12 @@ export default class Gastos extends Component {
     this.presupuesto = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId);;
     
     this.presupuesto.collection('Gastos').onSnapshot((qs)=>{
-      console.log(qs);
-      console.log(qs.docChanges())
+      //console.log(qs);
+      //console.log(qs.docChanges())
       qs.docChanges().map((change)=>{
 
         if(change.type=='modified'){
-          console.log(change.doc.data());
+          //console.log(change.doc.data());
           
           this.actualizarGasto(change.doc.id,change.doc.data());          
         }
