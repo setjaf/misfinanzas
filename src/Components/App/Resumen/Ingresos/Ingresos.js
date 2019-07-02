@@ -9,6 +9,7 @@ export default class Ingresos extends Component {
     super(props);
 
     this.state = {
+      presupuestoId: this.props.presupuestoId,
       ingresos:[],
     }
     
@@ -138,6 +139,12 @@ export default class Ingresos extends Component {
   }
 
   render(){
+    if(this.props.presupuestoId !== this.state.presupuestoId){
+      this.inicializarIngresos();
+      this.setState({
+        presupuestoId:this.props.presupuestoId,
+      });
+    }
     return(
       <div>
           <form onSubmit={this.registrarIngreso}>

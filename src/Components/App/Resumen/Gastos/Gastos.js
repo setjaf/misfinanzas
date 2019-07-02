@@ -9,6 +9,7 @@ export default class Gastos extends Component {
     super(props);
 
     this.state = {
+      presupuestoId:this.props.presupuestoId,
       gastos:[],
     }
     
@@ -17,27 +18,13 @@ export default class Gastos extends Component {
     this.pagarGasto = this.pagarGasto.bind(this);
     this.actualizarGasto = this.actualizarGasto.bind(this);
     this.inicializarGastos = this.inicializarGastos.bind(this);
-
-    this.presupuesto = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId);;
-    
-    this.presupuesto.collection('Gastos').onSnapshot((qs)=>{
-      //console.log(qs);
-      //console.log(qs.docChanges())
-      qs.docChanges().map((change)=>{
-
-        if(change.type=='modified'){
-          //console.log(change.doc.data());
-          
-          this.actualizarGasto(change.doc.id,change.doc.data());          
-        }
-        
-      });      
-    });
+    this.iniciarListenerActualizaciones = this.iniciarListenerActualizaciones.bind(this);
   }  
 
   componentDidMount(){
 
     this.inicializarGastos();
+    this.iniciarListenerActualizaciones();
 
   }
 
@@ -207,7 +194,7 @@ export default class Gastos extends Component {
     console.log(gastos);
     
     gastos = gastos.map((gasto)=>{
-      if(gasto.id==gastoId){
+      if(gasto.id===gastoId){
         gasto=gastoObj;
         gasto.id = gastoId;
         gasto.registro = gasto.registro.toDate();
@@ -222,7 +209,36 @@ export default class Gastos extends Component {
     })
   }
 
+  iniciarListenerActualizaciones(){
+    console.log('Iniciar actualizaciones');
+    
+    this.presupuesto = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId);;
+    
+    this.presupuesto.collection('Gastos').onSnapshot((qs)=>{
+      //console.log(qs);
+      //console.log(qs.docChanges())
+      qs.docChanges().forEach((change)=>{        
+
+        if(change.type==='modified'){
+          //console.log(change.doc.data());
+          
+          this.actualizarGasto(change.doc.id,change.doc.data());          
+        }
+        
+      });      
+    });
+  }
+
   render(){
+    if(this.props.presupuestoId !== this.state.presupuestoId){
+      console.log('Cambió presupuesto id');
+      
+      this.inicializarGastos();
+      this.setState({
+        presupuestoId:this.props.presupuestoId,
+      });
+      this.iniciarListenerActualizaciones();
+    }
     return(
       <div>
           <form onSubmit={this.registrarGasto}>
