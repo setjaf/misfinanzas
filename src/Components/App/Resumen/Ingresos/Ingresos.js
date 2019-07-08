@@ -1,6 +1,6 @@
-import React, {Component} from 'react';
+import React, { Component } from 'react';
 import firebase from '../../../../Utils/firebase';
-import {FDtoJSON} from '../../../../Utils/FDtoJSON';
+import { FDtoJSON } from '../../../../Utils/FDtoJSON';
 
 const db = firebase.firestore();
 
@@ -10,69 +10,69 @@ export default class Ingresos extends Component {
 
     this.state = {
       presupuestoId: this.props.presupuestoId,
-      ingresos:[],
+      ingresos: [],
     }
-    
+
     this.registrarIngreso = this.registrarIngreso.bind(this);
     this.borrarIngreso = this.borrarIngreso.bind(this);
     this.inicializarIngresos = this.inicializarIngresos.bind(this);
-  }  
+  }
 
-  componentDidMount(){
+  componentDidMount() {
     this.inicializarIngresos();
   }
 
-  inicializarIngresos(){
+  inicializarIngresos() {
     const esto = this;
     let ingresos = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId).collection('Ingresos');
-    ingresos.get().then((qs)=>{
+    ingresos.get().then((qs) => {
       let ingresos = [];
-        qs.docs.map(
-          (doc)=>{
-            const data = doc.data();
-            let ingreso = {...data}
-            ingreso.id = doc.id;
-            ingreso.registro = ingreso.registro.toDate();
-            ingresos.push(ingreso);
-            return ingreso;
-          }
-        );
-        esto.setState({
-          ingresos:ingresos,
-        });
+      qs.docs.map(
+        (doc) => {
+          const data = doc.data();
+          let ingreso = { ...data }
+          ingreso.id = doc.id;
+          ingreso.registro = ingreso.registro.toDate();
+          ingresos.push(ingreso);
+          return ingreso;
+        }
+      );
+      esto.setState({
+        ingresos: ingresos,
+      });
     })
   }
 
-  registrarIngreso(event){
+  registrarIngreso(event) {
     const esto = this;
 
     event.preventDefault();
 
-    let ingresos = this.state.ingresos.slice(0,this.state.ingresos.length);
-    
+    let ingresos = this.state.ingresos.slice(0, this.state.ingresos.length);
+
     let ingreso = FDtoJSON(new FormData(event.target));
 
-    ingreso.registro = firebase.firestore.Timestamp.now();    
+    ingreso.registro = firebase.firestore.Timestamp.now();
 
     let presupuesto = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId);
-    
+
     db.runTransaction(
       function (transaction) {
         return transaction.get(presupuesto).then(
-          (doc)=>{
+          (doc) => {
             transaction.update(presupuesto,
               {
-                dineroDisponible:Number(doc.data().dineroDisponible)+Number(ingreso.importe),
-                dineroLibre:Number(doc.data().dineroLibre)+Number(ingreso.importe),
+                dineroDisponible: Number(doc.data().dineroDisponible) + Number(ingreso.importe),
+                dineroLibre: Number(doc.data().dineroLibre) + Number(ingreso.importe),
               }
             );
           }
         );
       }
-    );    
-    
+    );
+
     presupuesto.collection('Ingresos').add(ingreso).then(
-      (docRef)=>{
+      (docRef) => {
 
         alert('Ingreso guardado');
 
@@ -83,12 +83,12 @@ export default class Ingresos extends Component {
         );
 
         esto.setState({
-          ingresos:ingresos,
+          ingresos: ingresos,
         });
 
       }
     ).catch(
-      (a)=>{
+      (a) => {
         alert(a);
         alert('No se pudo guardar el ingreso')
       }
@@ -96,31 +96,31 @@ export default class Ingresos extends Component {
     event.target.reset();
   }
 
-  borrarIngreso(ingreso){
+  borrarIngreso(ingreso) {
 
     const esto = this;
 
-    let ingresos = this.state.ingresos.slice(0,this.state.ingresos.length);
+    let ingresos = this.state.ingresos.slice(0, this.state.ingresos.length);
 
     let presupuesto = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId);
 
     console.log(ingresos);
     console.log(ingreso);
 
-    
+
 
     presupuesto.collection('Ingresos').doc(ingresos[ingreso].id).delete().then(
-      ()=>{
+      () => {
         let ingresoImporte = ingresos[ingreso].importe;
 
         db.runTransaction(
           function (transaction) {
             return transaction.get(presupuesto).then(
-              (doc)=>{
+              (doc) => {
                 transaction.update(presupuesto,
                   {
-                    dineroDisponible:Number(doc.data().dineroDisponible)-Number(ingresoImporte),
-                    dineroLibre:Number(doc.data().dineroLibre)-Number(ingresoImporte),
+                    dineroDisponible: Number(doc.data().dineroDisponible) - Number(ingresoImporte),
+                    dineroLibre: Number(doc.data().dineroLibre) - Number(ingresoImporte),
                   }
                 );
               }
@@ -128,75 +128,69 @@ export default class Ingresos extends Component {
           }
         );
 
-        ingresos.splice(ingreso,1);
+        ingresos.splice(ingreso, 1);
 
         esto.setState({
-          ingresos:ingresos,
+          ingresos: ingresos,
         });
       }
     );
 
   }
 
-  render(){
-    if(this.props.presupuestoId !== this.state.presupuestoId){
+  render() {
+    if (this.props.presupuestoId !== this.state.presupuestoId) {
       this.inicializarIngresos();
       this.setState({
-        presupuestoId:this.props.presupuestoId,
+        presupuestoId: this.props.presupuestoId,
       });
     }
-    return(
+    return (
       <div>
-          <form onSubmit={this.registrarIngreso}>
-            <h4>Ingresos fijos en el periodo:</h4>
+        <form onSubmit={this.registrarIngreso}>
+          <h3>Agregar ingreso al periodo:</h3>
 
-            <div>
-              <label>
-                Concepto:
+          <div>
+            <label>
+              Concepto:
               </label>
-              <input type="text" name="concepto" required/>
-            </div>
+            <input type="text" name="concepto" required />
+          </div>
 
-            <div>
-              <label>
-                Importe:
+          <div>
+            <label>
+              Importe:
               </label>
-              <input type="text" name="importe" required/>
-            </div>
+            <input type="text" name="importe" required />
+          </div>
 
-            <input type="submit" value="Enviar"/>
-          </form>
-          <table>
-            <thead>
-              <tr>
-                <td>Concepto</td>
-                <td>Importe</td>
-                <td>Periodicidad</td>
-                <td>Día de pago</td>
-              </tr>
-            </thead>
+          <input type="submit" value="Enviar" />
+        </form>
 
-            <tbody>
-              {
-                this.state.ingresos.map(
-                  (ingreso, key)=>{
-                    return(
-                      <tr key={key}>
-                        <td>{ingreso.concepto}</td>
-                        <td>${ingreso.importe}</td>
-                        <td>{`${ingreso.registro.getFullYear()}-${ingreso.registro.getMonth()+1<10?'0':''}${ingreso.registro.getMonth()+1}-${ingreso.registro.getDate()<10?'0':''}${ingreso.registro.getDate()}`}</td>
-                        <td><button onClick={()=>this.borrarIngreso(key)}>Borrar</button></td>
-                      </tr>
-                    );
-                  }
-                )
-              }
-            </tbody>
+        <div>
+          <h3>Lista de ingresos</h3>
+          <ul>
+            {
+              this.state.ingresos.map(
+                (ingreso, key) => {
+                  return (
+                    <li key={key}>
+                      <details>
+                        <summary>{`${ingreso.concepto} - $${ingreso.importe}`}</summary>
+                        <p>{`Registro: ${ingreso.registro.getFullYear()}-${ingreso.registro.getMonth() + 1 < 10 ? '0' : ''}${ingreso.registro.getMonth() + 1}-${ingreso.registro.getDate() < 10 ? '0' : ''}${ingreso.registro.getDate()}`}</p>
+                        <div><button onClick={() => this.borrarIngreso(key)}>Borrar</button></div>
+                      </details>
 
-          </table>       
-
+                    </li>
+                  );
+                }
+              )
+            }
+          </ul>
         </div>
+
+      </div>
     );
   }
-  
+
 }

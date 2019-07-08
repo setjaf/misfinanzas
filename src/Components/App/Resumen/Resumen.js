@@ -17,22 +17,13 @@ export default class Resumen extends Component{
 
     this.presupuesto = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId);;
     
-    this.presupuesto.onSnapshot((ds)=>{
-      console.log(ds);
-      this.actualizarDinero(ds.data());
-      /*console.log(qs.docChanges())
-      qs.docChanges().map((change)=>{
-
-        if(change.type=='modified'){
-          console.log(change.doc.data());
-          
-          this.actualizarGasto(change.doc.id,change.doc.data());          
-        }
-        
-      });*/      
-    });
-
     this.actualizarDinero=this.actualizarDinero.bind(this);
+
+    this.presupuesto.onSnapshot((ds)=>{
+
+      this.actualizarDinero(ds.data());
+      
+    });
 
   }
 
@@ -46,10 +37,12 @@ export default class Resumen extends Component{
   render(){
     return(
       <div>
+        
         <h3>Dinero disponible</h3>
         <h4>${this.state.dineroDisponible}</h4>
         <h3>Dinero libre</h3>
         <h4>${this.state.dineroLibre}</h4>
+
         <Ingresos uid={this.props.uid} presupuestoId={this.props.presupuestoId}/>
   
         <Gastos uid={this.props.uid} presupuestoId={this.props.presupuestoId}/>

@@ -1,6 +1,6 @@
-import React, {Component} from 'react';
+import React, { Component } from 'react';
 import firebase from '../../../../Utils/firebase';
-import {FDtoJSON} from '../../../../Utils/FDtoJSON';
+import { FDtoJSON } from '../../../../Utils/FDtoJSON';
 
 const db = firebase.firestore();
 
@@ -9,69 +9,69 @@ export default class Gastos extends Component {
     super(props);
 
     this.state = {
-      presupuestoId:this.props.presupuestoId,
-      gastos:[],
+      presupuestoId: this.props.presupuestoId,
+      gastos: [],
     }
-    
+
     this.registrarGasto = this.registrarGasto.bind(this);
     this.borrarGasto = this.borrarGasto.bind(this);
     this.pagarGasto = this.pagarGasto.bind(this);
     this.actualizarGasto = this.actualizarGasto.bind(this);
     this.inicializarGastos = this.inicializarGastos.bind(this);
     this.iniciarListenerActualizaciones = this.iniciarListenerActualizaciones.bind(this);
-  }  
+  }
 
-  componentDidMount(){
+  componentDidMount() {
 
     this.inicializarGastos();
     this.iniciarListenerActualizaciones();
 
   }
 
-  inicializarGastos(){
+  inicializarGastos() {
     const esto = this;
     let gastos = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId).collection('Gastos');
-    gastos.get().then((qs)=>{
+    gastos.get().then((qs) => {
       let gastos = [];
-        qs.docs.map(
-          (doc)=>{
-            const data = doc.data();
-            let gasto = {...data}
-            gasto.id = doc.id;
-            gasto.registro = gasto.registro.toDate();
-            gastos.push(gasto);
-            return gasto;
-          }
-        );
-        esto.setState({
-          gastos:gastos,
-        });
+      qs.docs.forEach(
+        (doc) => {
+          const data = doc.data();
+          let gasto = { ...data }
+          gasto.id = doc.id;
+          gasto.registro = gasto.registro.toDate();
+          gastos.push(gasto);
+          return gasto;
+        }
+      );
+      esto.setState({
+        gastos: gastos,
+      });
     })
   }
 
-  registrarGasto(event){
+  registrarGasto(event) {
     const esto = this;
 
     event.preventDefault();
 
-    let gastos = this.state.gastos.slice(0,this.state.gastos.length);
-    
+    let gastos = this.state.gastos.slice(0, this.state.gastos.length);
+
     let gasto = FDtoJSON(new FormData(event.target));
 
-    gasto.registro = firebase.firestore.Timestamp.now();  
-    
-    gasto.importeActual = gasto.importeOriginal;       
-    
+    gasto.registro = firebase.firestore.Timestamp.now();
+
+    gasto.importeActual = gasto.importeOriginal;
+
     this.presupuesto.collection('Gastos').add(gasto).then(
-      (docRef)=>{
+      (docRef) => {
 
         db.runTransaction(
           function (transaction) {
             return transaction.get(esto.presupuesto).then(
-              (doc)=>{
+              (doc) => {
                 transaction.update(esto.presupuesto,
-                  {                
-                    dineroLibre:Number(doc.data().dineroLibre)-Number(gasto.importeOriginal),
+                  {
+                    dineroLibre: Number(doc.data().dineroLibre) - Number(gasto.importeOriginal),
                   }
                 );
               }
@@ -88,65 +88,84 @@ export default class Gastos extends Component {
         );
 
         esto.setState({
-          gastos:gastos,
+          gastos: gastos,
         });
 
       }
     ).catch(
-      (a)=>{
+      (a) => {
         alert('No se pudo guardar el gasto')
       }
     );
     event.target.reset();
   }
 
-  borrarGasto(gasto){
+  borrarGasto(gasto) {
 
     const esto = this;
 
-    let gastos = this.state.gastos.slice(0,this.state.gastos.length);
+    let gastos = this.state.gastos.slice(0, this.state.gastos.length);
 
     console.log(gastos);
     console.log(gasto);
 
-    this.presupuesto.collection('Gastos').doc(gastos[gasto].id).delete().then(
-      ()=>{
-        let importeGasto = gastos[gasto].importeOriginal;
-        db.runTransaction(
-          function (transaction) {
-            return transaction.get(esto.presupuesto).then(
-              (doc)=>{
-                transaction.update(esto.presupuesto,
-                  {                
-                    dineroLibre:Number(doc.data().dineroLibre)+Number(importeGasto),
+    let totalPagos = 0;
+
+    this.presupuesto.collection('Gastos').doc(gastos[gasto].id).collection('Pagos').get().then(
+      (qs) => {
+        qs.docs.forEach(
+          (doc) => {
+            console.log(doc)
+            totalPagos += Number(doc.data().importe);
+          }
+        );
+
+        console.log(totalPagos);
+
+        this.presupuesto.collection('Gastos').doc(gastos[gasto].id).delete().then(
+          () => {
+            let importeGasto = gastos[gasto].importeOriginal;
+            db.runTransaction(
+              function (transaction) {
+                return transaction.get(esto.presupuesto).then(
+                  (doc) => {
+                    transaction.update(esto.presupuesto,
+                      {
+                        dineroDisponible: Number(doc.data().dineroDisponible) + Number(totalPagos),
+                        dineroLibre: Number(doc.data().dineroLibre) + Number(importeGasto),
+                      }
+                    );
                   }
                 );
               }
             );
+
+            gastos.splice(gasto, 1);
+
+            esto.setState({
+              gastos: gastos,
+            });
           }
         );
 
-        gastos.splice(gasto,1);
-
-        esto.setState({
-          gastos:gastos,
-        });
       }
     );
 
+
+
   }
 
-  pagarGasto(event){
+  pagarGasto(event) {
     const esto = this;
 
     event.preventDefault();
-    
+
     let pago = FDtoJSON(new FormData(event.target));
 
     this.presupuesto.collection('Gastos').doc(pago.gastoId).collection('Pagos').add({
-      importe:pago.importePago,
-      registro:firebase.firestore.Timestamp.now(),
-    }).then((docRef)=>{
+      importe: pago.importePago,
+      registro: firebase.firestore.Timestamp.now(),
+    }).then((docRef) => {
 
       console.log(docRef.id);
 
@@ -155,10 +174,10 @@ export default class Gastos extends Component {
       db.runTransaction(
         function (transaction) {
           return transaction.get(esto.presupuesto).then(
-            (doc)=>{
+            (doc) => {
               transaction.update(esto.presupuesto,
-                {                
-                  dineroDisponible:Number(doc.data().dineroDisponible)-Number(pago.importePago),
+                {
+                  dineroDisponible: Number(doc.data().dineroDisponible) - Number(pago.importePago),
                 }
               );
             }
@@ -169,10 +188,10 @@ export default class Gastos extends Component {
       db.runTransaction(
         function (transaction) {
           return transaction.get(esto.presupuesto.collection('Gastos').doc(pago.gastoId)).then(
-            (doc)=>{
+            (doc) => {
               transaction.update(esto.presupuesto.collection('Gastos').doc(pago.gastoId),
-                {                
-                  importeActual:Number(doc.data().importeActual)-Number(pago.importePago),
+                {
+                  importeActual: Number(doc.data().importeActual) - Number(pago.importePago),
                 }
               );
             }
@@ -181,21 +200,21 @@ export default class Gastos extends Component {
       );
 
     });
-    
+
     console.log(pago);
 
     event.target.reset();
-    
+
   }
 
-  actualizarGasto(gastoId,gastoObj){
+  actualizarGasto(gastoId, gastoObj) {
     alert("Actualizando gasto");
-    let gastos = this.state.gastos.slice(0,this.state.gastos.length);
+    let gastos = this.state.gastos.slice(0, this.state.gastos.length);
     console.log(gastos);
-    
-    gastos = gastos.map((gasto)=>{
-      if(gasto.id===gastoId){
-        gasto=gastoObj;
+
+    gastos = gastos.map((gasto) => {
+      if (gasto.id === gastoId) {
+        gasto = gastoObj;
         gasto.id = gastoId;
         gasto.registro = gasto.registro.toDate();
       }
@@ -205,103 +224,99 @@ export default class Gastos extends Component {
     console.log(gastos);
 
     this.setState({
-      gastos:gastos,
+      gastos: gastos,
     })
   }
 
-  iniciarListenerActualizaciones(){
+  iniciarListenerActualizaciones() {
     console.log('Iniciar actualizaciones');
-    
+
     this.presupuesto = db.collection('Usuarios').doc(this.props.uid).collection('Presupuestos').doc(this.props.presupuestoId);;
-    
-    this.presupuesto.collection('Gastos').onSnapshot((qs)=>{
+
+    this.presupuesto.collection('Gastos').onSnapshot((qs) => {
       //console.log(qs);
       //console.log(qs.docChanges())
-      qs.docChanges().forEach((change)=>{        
+      qs.docChanges().forEach((change) => {
 
-        if(change.type==='modified'){
+        if (change.type === 'modified') {
           //console.log(change.doc.data());
-          
-          this.actualizarGasto(change.doc.id,change.doc.data());          
+
+          this.actualizarGasto(change.doc.id, change.doc.data());
         }
-        
-      });      
+
+      });
     });
   }
 
-  render(){
-    if(this.props.presupuestoId !== this.state.presupuestoId){
+  render() {
+    if (this.props.presupuestoId !== this.state.presupuestoId) {
       console.log('Cambió presupuesto id');
-      
+
       this.inicializarGastos();
       this.setState({
-        presupuestoId:this.props.presupuestoId,
+        presupuestoId: this.props.presupuestoId,
       });
       this.iniciarListenerActualizaciones();
     }
-    return(
+    return (
       <div>
-          <form onSubmit={this.registrarGasto}>
-            <h4>Gastos fijos en el periodo:</h4>
+        <form onSubmit={this.registrarGasto}>
+          <h3>Agregar gasto al periodo:</h3>
 
-            <div>
-              <label>
-                Concepto:
+          <div>
+            <label>
+              Concepto:
               </label>
-              <input type="text" name="concepto" required/>
-            </div>
+            <input type="text" name="concepto" required />
+          </div>
 
-            <div>
-              <label>
-                Importe:
+          <div>
+            <label>
+              Importe:
               </label>
-              <input type="text" name="importeOriginal" required/>
-            </div>
+            <input type="text" name="importeOriginal" required />
+          </div>
 
-            <input type="submit" value="Enviar"/>
-          </form>
-          <table>
-            <thead>
-              <tr>
-                <td>Concepto</td>
-                <td>Importe Original</td>
-                <td>Importe Actual</td>
-                <td>Periodicidad</td>
-              </tr>
-            </thead>
+          <input type="submit" value="Enviar" />
+        </form>
 
-            <tbody>
-              {
-                this.state.gastos.map(
-                  (gasto, key)=>{
-                    return(
-                      <tr key={key}>
-                        <td>{gasto.concepto}</td>
-                        <td>${gasto.importeOriginal}</td>
-                        <td>${gasto.importeActual}</td>
-                        <td>{`${gasto.registro.getFullYear()}-${gasto.registro.getMonth()+1<10?'0':''}${gasto.registro.getMonth()+1}-${gasto.registro.getDate()<10?'0':''}${gasto.registro.getDate()}`}</td>
-                        <td>
-                          <form onSubmit={(event)=>this.pagarGasto(event)}>
+        <div>
+          <h3>Lista de gastos</h3>
+          <ul>
+
+            {
+              this.state.gastos.map(
+                (gasto, key) => {
+                  return (
+                    <li key={key}>
+                      <details>
+                        <summary>{`${gasto.concepto} - $${gasto.importeActual}`}</summary>
+                        <p>{`Importe original: $${gasto.importeOriginal}`}</p>
+                        <p>{`Registrado: ${gasto.registro.getFullYear()}-${gasto.registro.getMonth() + 1 < 10 ? '0' : ''}${gasto.registro.getMonth() + 1}-${gasto.registro.getDate() < 10 ? '0' : ''}${gasto.registro.getDate()}`}</p>
+                        <div>
+                          <form onSubmit={(event) => this.pagarGasto(event)}>
                             <input type="text" name="gastoId" value={gasto.id} readOnly={true} hidden={true} />
                             <label>
                               Importe:
-                            </label>
-                            <input type="number" name="importePago" required/>
+                                </label>
+                            <input type="number" name="importePago" required />
                             <input type="submit" value="Realizar Pago" />
                           </form>
-                        </td>
-                        <td><button onClick={()=>this.borrarGasto(key)}>Borrar</button></td>
-                      </tr>
-                    );
-                  }
-                )
-              }
-            </tbody>
+                        </div>
+                        <div><button onClick={() => this.borrarGasto(key)}>Borrar</button></div>
+                      </details>
 
-          </table>       
+                    </li>
+                  );
+                }
+              )
+            }
 
+          </ul>
         </div>
+
+      </div>
     );
   }
-  
+
 }
