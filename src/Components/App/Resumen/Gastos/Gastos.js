@@ -2,6 +2,8 @@ import React, { Component } from 'react';
 import firebase from '../../../../Utils/firebase';
 import { FDtoJSON } from '../../../../Utils/FDtoJSON';
 
+import Pagos from './Pagos/Pagos';
+
 const db = firebase.firestore();
 
 export default class Gastos extends Component {
@@ -245,17 +247,23 @@ export default class Gastos extends Component {
         }
 
       });
+
     });
+
   }
 
   render() {
+
     if (this.props.presupuestoId !== this.state.presupuestoId) {
+
       console.log('Cambió presupuesto id');
 
       this.inicializarGastos();
+      
       this.setState({
         presupuestoId: this.props.presupuestoId,
       });
+
       this.iniciarListenerActualizaciones();
     }
     return (
@@ -283,7 +291,6 @@ export default class Gastos extends Component {
         <div>
           <h3>Lista de gastos</h3>
           <ul>
-
             {
               this.state.gastos.map(
                 (gasto, key) => {
@@ -302,8 +309,9 @@ export default class Gastos extends Component {
                             <input type="number" name="importePago" required />
                             <input type="submit" value="Realizar Pago" />
                           </form>
-                        </div>
+                        </div>                        
                         <div><button onClick={() => this.borrarGasto(key)}>Borrar</button></div>
+                        <div><Pagos IdGasto={gasto.id} uid={this.props.uid} presupuestoId={this.props.presupuestoId}/></div>
                       </details>
 
                     </li>
